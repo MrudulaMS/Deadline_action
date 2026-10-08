@@ -2,5 +2,7 @@
   "name": "Deadline Radar",
   "description": "Academic workload distribution, clash detection, and deadline velocity analytics engineered to eliminate student crunch anxiety.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -111,10 +111,10 @@ users/{userId}/tasks/{taskId}/subtasks/{subtaskId}
 
 ---
 
-## 6. Gemini AI Integration & Security
+## 6. Gemma 4 & Gemini AI Integration
 
-- **Server-Side Only**: The Gemini API key (`GEMINI_API_KEY`) is stored securely in environment secrets and is **never** bundled or exposed to the client browser.
-- **Model**: `gemini-2.5-flash` via `@google/genai`.
+- **Dual-Model Engine**: Supports Google's **Gemma 4** (`google/gemma-4-31B-it`) via Hugging Face's OpenAI-compatible inference router with seamless automatic fallback to **Gemini 2.5 Flash** (`@google/genai`).
+- **Server-Side Security**: The Hugging Face token and Gemini API key are stored strictly server-side and never exposed to client code.
 - **System Instructions**: Fixed server-side instructions enforce prompt injection resistance and schema conformance.
 - **Rate Limiting**: In-memory rate limiting restricts users to 20 AI requests per hour.
 - **User Confirmation Mandatory**: AI extraction returns candidate items in structured JSON. The frontend presents them with checkboxes and editable fields; tasks are created only when the user explicitly clicks "Confirm & Add to Schedule".
