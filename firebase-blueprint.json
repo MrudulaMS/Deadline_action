@@ -1,0 +1,126 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile document storing basic account metadata.",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 150 },
+        "timezone": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["email", "timezone"]
+    },
+    "UserSettings": {
+      "title": "User Preferences",
+      "description": "Personalized workload and scheduling thresholds for Deadline Radar.",
+      "type": "object",
+      "properties": {
+        "dailyWorkloadThreshold": { "type": "number" },
+        "weeklyWorkloadThreshold": { "type": "number" },
+        "preferredWorkStartTime": { "type": "string", "maxLength": 10 },
+        "preferredWorkEndTime": { "type": "string", "maxLength": 10 },
+        "weekStartsOn": { "type": "string", "enum": ["Monday", "Sunday"] },
+        "defaultCalendarView": { "type": "string", "enum": ["month", "week", "day"] },
+        "deadlineRemindersEnabled": { "type": "boolean" },
+        "workloadWarningsEnabled": { "type": "boolean" },
+        "dailySummaryEnabled": { "type": "boolean" },
+        "theme": { "type": "string", "enum": ["light", "dark", "system"] }
+      },
+      "required": ["dailyWorkloadThreshold", "weeklyWorkloadThreshold", "weekStartsOn"]
+    },
+    "Task": {
+      "title": "Task / Deliverable",
+      "description": "User-owned deadline, assignment, exam, project, club activity, or personal commitment.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "category": {
+          "type": "string",
+          "enum": ["assignment", "exam", "project", "club", "event", "personal", "other"]
+        },
+        "deadlineDate": { "type": "string", "maxLength": 10 },
+        "deadlineTime": { "type": "string", "maxLength": 10 },
+        "estimatedMinutes": { "type": "number" },
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "status": { "type": "string", "enum": ["pending", "in_progress", "completed", "archived"] },
+        "isFlexible": { "type": "boolean" },
+        "startDate": { "type": "string", "maxLength": 10 },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "completedAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "deletedAt": { "type": "string" }
+      },
+      "required": ["title", "category", "deadlineDate", "estimatedMinutes", "priority", "status", "isFlexible"]
+    },
+    "Subtask": {
+      "title": "Subtask",
+      "description": "Discrete milestone checklist item under a parent task.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "completed": { "type": "boolean" },
+        "position": { "type": "number" },
+        "estimatedMinutes": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "completed", "position"]
+    },
+    "LegalTerms": {
+      "title": "Terms Acceptance",
+      "description": "Record of accepted terms of service version.",
+      "type": "object",
+      "properties": {
+        "version": { "type": "string", "maxLength": 20 },
+        "acceptedAt": { "type": "string" }
+      },
+      "required": ["version", "acceptedAt"]
+    },
+    "AiRequest": {
+      "title": "AI Request Log",
+      "description": "Audit and rate-limiting log for Gemini AI operations.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "operation": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "maxLength": 20 },
+        "createdAt": { "type": "string" },
+        "latencyMs": { "type": "number" },
+        "inputLength": { "type": "number" },
+        "errorCode": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["userId", "operation", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Individual user account profile."
+    },
+    "/users/{userId}/settings/preferences": {
+      "schema": "UserSettings",
+      "description": "User workload thresholds, preferences, and timezone."
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "User tasks and deliverables with status, priority, and effort."
+    },
+    "/users/{userId}/tasks/{taskId}/subtasks/{subtaskId}": {
+      "schema": "Subtask",
+      "description": "Subtask milestone items for a task."
+    },
+    "/users/{userId}/legal/terms": {
+      "schema": "LegalTerms",
+      "description": "Terms and conditions acceptance tracking."
+    },
+    "/users/{userId}/aiRequests/{requestId}": {
+      "schema": "AiRequest",
+      "description": "Rate-limiting and audit log for AI interactions."
+    }
+  }
+}

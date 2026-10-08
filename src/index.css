@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #F9FAFB;
+    color: #111827;
+  }
+
+  /* Tabular numbers for dates, times, units, metrics */
+  .tabular-num {
+    font-variant-numeric: tabular-nums;
+  }
+}
