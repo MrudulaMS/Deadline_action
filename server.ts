@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
 
@@ -40,6 +40,20 @@ function checkRateLimit(userId: string): { allowed: boolean; remaining: number }
 const HUGGINGFACE_TOKEN = process.env.HUGGINGFACE_TOKEN || '';
 const GEMMA_MODEL = process.env.GEMMA_MODEL || 'google/gemma-4-31B-it';
 
+// Active high-performance Gemini models with automated fallback
+const GEMINI_MODELS = [
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.8-flash',
+];
+
+// Lazy Gemini client initialization
+function getGeminiClient(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  return new GoogleGenAI({ apiKey });
+}
+
 async function queryGemma(messages: { role: string; content: string }[], maxTokens = 1500): Promise<string | null> {
   if (!HUGGINGFACE_TOKEN) return null;
   try {
@@ -59,21 +73,46 @@ async function queryGemma(messages: { role: string; content: string }[], maxToke
 
     if (!res.ok) {
       const errText = await res.text();
-      console.warn(`Hugging Face Gemma API returned status ${res.status}: ${errText}. Falling back to Gemini.`);
+      console.warn(`Hugging Face Gemma API status ${res.status}: ${errText}. Routing to Gemini.`);
       return null;
     }
 
     const data: any = await res.json();
     return data.choices?.[0]?.message?.content || null;
   } catch (err) {
-    console.warn('Gemma request encountered an error, falling back to Gemini:', err);
+    console.warn('Gemma request failed, routing to Gemini:', err);
     return null;
   }
 }
 
+async function generateWithGemini(contents: string, systemInstruction: string): Promise<string> {
+  const ai = getGeminiClient();
+  if (!ai) throw new Error('Gemini API key is not configured.');
+
+  let lastError: any = null;
+  for (const model of GEMINI_MODELS) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents,
+        config: {
+          systemInstruction,
+          responseMimeType: 'application/json',
+        },
+      });
+      if (response.text) {
+        return response.text;
+      }
+    } catch (err: any) {
+      console.warn(`Model ${model} failed (${err.status || err.message}), attempting next model...`);
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('All AI models unavailable.');
+}
+
 function extractJsonFromText(rawText: string): any {
   let cleaned = rawText.trim();
-  // Strip markdown code fences if present
   if (cleaned.startsWith('```')) {
     cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
   }
@@ -84,11 +123,112 @@ function extractJsonFromText(rawText: string): any {
   return JSON.parse(cleaned);
 }
 
-// Lazy Gemini client initialization
-function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-  return new GoogleGenAI({ apiKey });
+/**
+ * Deterministic local parser fallback if external cloud AI providers are unavailable
+ */
+function localRuleBasedExtraction(text: string, referenceDate: string): any {
+  const items: any[] = [];
+  const lower = text.toLowerCase();
+  const sentences = text.split(/[.;\n]+/).map((s) => s.trim()).filter(Boolean);
+
+  const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const ref = new Date(referenceDate);
+
+  for (const sentence of sentences) {
+    const sLower = sentence.toLowerCase();
+    let category = 'assignment';
+    let priority = 'medium';
+    let isFlexible = false;
+    let estimatedMinutes = 90;
+
+    if (sLower.includes('exam') || sLower.includes('midterm') || sLower.includes('final') || sLower.includes('prelim') || sLower.includes('quiz') || sLower.includes('test')) {
+      category = 'exam';
+      priority = 'high';
+      isFlexible = false;
+      estimatedMinutes = 180;
+    } else if (sLower.includes('project') || sLower.includes('paper') || sLower.includes('draft') || sLower.includes('essay')) {
+      category = 'project';
+      priority = 'high';
+      isFlexible = false;
+      estimatedMinutes = 240;
+    } else if (sLower.includes('club') || sLower.includes('meeting') || sLower.includes('social') || sLower.includes('event')) {
+      category = 'club';
+      priority = 'low';
+      isFlexible = true;
+      estimatedMinutes = 60;
+    } else if (sLower.includes('read') || sLower.includes('study') || sLower.includes('review') || sLower.includes('prep')) {
+      category = 'personal';
+      priority = 'medium';
+      isFlexible = true;
+      estimatedMinutes = 90;
+    }
+
+    // Attempt relative date detection
+    let dateStr = referenceDate;
+    let timeStr = '23:59';
+
+    if (sLower.includes('tomorrow')) {
+      const d = new Date(ref);
+      d.setDate(ref.getDate() + 1);
+      dateStr = d.toISOString().split('T')[0];
+    } else {
+      for (let i = 0; i < 7; i++) {
+        if (sLower.includes(daysOfWeek[i])) {
+          const currentDay = ref.getDay();
+          let targetDay = i;
+          let diff = targetDay - currentDay;
+          if (diff <= 0 || sLower.includes('next ' + daysOfWeek[i])) {
+            diff += 7;
+          }
+          const d = new Date(ref);
+          d.setDate(ref.getDate() + diff);
+          dateStr = d.toISOString().split('T')[0];
+          break;
+        }
+      }
+    }
+
+    // Simple time check (e.g. 10am, 2pm, 14:00)
+    const timeMatch = sentence.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1], 10);
+      const minutes = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
+      const meridiem = timeMatch[3].toLowerCase();
+      if (meridiem === 'pm' && hours < 12) hours += 12;
+      if (meridiem === 'am' && hours === 12) hours = 0;
+      timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
+
+    const title = sentence.replace(/^(i have|there is|due|due date|scheduled)\s*/i, '').trim();
+
+    items.push({
+      title: title.length > 5 ? title.slice(0, 100) : 'Academic Commitment',
+      category,
+      date: dateStr,
+      time: timeStr,
+      estimatedMinutes,
+      priority,
+      isFlexible,
+      notes: sentence,
+    });
+  }
+
+  return {
+    items: items.length > 0 ? items : [
+      {
+        title: text.slice(0, 80),
+        category: 'assignment',
+        date: referenceDate,
+        time: '23:59',
+        estimatedMinutes: 90,
+        priority: 'medium',
+        isFlexible: false,
+        notes: text,
+      },
+    ],
+    needsClarification: false,
+    questions: [],
+  };
 }
 
 // Health check endpoint
@@ -99,13 +239,14 @@ app.get('/api/health', (_req: Request, res: Response) => {
     gemmaModel: GEMMA_MODEL,
     hasHfToken: Boolean(HUGGINGFACE_TOKEN),
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+    geminiModels: GEMINI_MODELS,
     timestamp: new Date().toISOString(),
   });
 });
 
 /**
  * 1. Natural Language Task Extraction
- * Prioritizes Gemma 4 with seamless fallback to Gemini.
+ * Resilient multi-tier architecture: Gemma 4 -> Gemini 3.5 -> Local Rule Engine.
  */
 app.post('/api/ai/extract-tasks', async (req: Request, res: Response): Promise<void> => {
   const startTime = Date.now();
@@ -153,7 +294,7 @@ STRICT RULES:
 4. isFlexible: true for personal study/reading/club events; false for fixed exams, class tests, and course submissions.
 5. estimatedMinutes: estimate reasonable effort in integer minutes (e.g., 60, 90, 180, 240) if inferable; otherwise default to 60.
 6. Times should be HH:MM in 24-hour format if mentioned (e.g. 17:00, 23:59), otherwise null.
-7. Return strictly a JSON object formatted as:
+7. Return strictly a JSON object:
 {
   "items": [
     {
@@ -176,101 +317,48 @@ STRICT RULES:
   let modelUsed = 'gemma-4';
 
   // 1. Try Gemma 4 via Hugging Face Inference Router
-  const gemmaMessages = [
-    { role: 'system', content: systemInstruction },
-    { role: 'user', content: `Extract deliverables from this text and return strictly valid JSON:\n"""\n${text.slice(0, 3000)}\n"""` },
-  ];
-
-  const gemmaResponse = await queryGemma(gemmaMessages, 1500);
-  if (gemmaResponse) {
-    try {
-      parsed = extractJsonFromText(gemmaResponse);
-    } catch (e) {
-      console.warn('Gemma output JSON parsing failed, falling back to Gemini:', e);
+  if (HUGGINGFACE_TOKEN) {
+    const gemmaMessages = [
+      { role: 'system', content: systemInstruction },
+      { role: 'user', content: `Extract deliverables from this text and return strictly valid JSON:\n"""\n${text.slice(0, 3000)}\n"""` },
+    ];
+    const gemmaResponse = await queryGemma(gemmaMessages, 1500);
+    if (gemmaResponse) {
+      try {
+        parsed = extractJsonFromText(gemmaResponse);
+      } catch (e) {
+        console.warn('Gemma output JSON parsing failed, attempting Gemini:', e);
+      }
     }
   }
 
-  // 2. Fallback to Gemini if Gemma did not return valid JSON
+  // 2. Fallback to Gemini with automatic model rotation
   if (!parsed) {
-    modelUsed = 'gemini-2.5-flash';
-    const ai = getGeminiClient();
-    if (!ai) {
-      res.status(503).json({
-        error: {
-          code: 'AI_UNAVAILABLE',
-          message: 'Both Gemma 4 and Gemini inference are currently unavailable.',
-        },
-      });
-      return;
-    }
-
+    modelUsed = 'gemini-flash';
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `User scheduling statement:\n"""\n${text.slice(0, 3000)}\n"""`,
-        config: {
-          systemInstruction,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              items: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    title: { type: Type.STRING },
-                    category: {
-                      type: Type.STRING,
-                      enum: ['assignment', 'exam', 'project', 'club', 'event', 'personal', 'other'],
-                    },
-                    date: { type: Type.STRING, description: 'YYYY-MM-DD or null if ambiguous' },
-                    time: { type: Type.STRING, description: 'HH:MM or null' },
-                    estimatedMinutes: { type: Type.INTEGER },
-                    priority: {
-                      type: Type.STRING,
-                      enum: ['low', 'medium', 'high', 'critical'],
-                    },
-                    isFlexible: { type: Type.BOOLEAN },
-                    notes: { type: Type.STRING },
-                  },
-                  required: ['title', 'category', 'isFlexible'],
-                },
-              },
-              needsClarification: { type: Type.BOOLEAN },
-              questions: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-              },
-            },
-            required: ['items', 'needsClarification'],
-          },
-        },
-      });
-
-      const rawJson = response.text?.trim() || '{}';
-      parsed = JSON.parse(rawJson);
-    } catch (err) {
-      console.error('Gemini extraction failed:', err);
-      res.status(500).json({
-        error: {
-          code: 'AI_PROCESSING_ERROR',
-          message: 'Failed to extract deliverables with AI models.',
-        },
-      });
-      return;
+      const prompt = `User scheduling statement:\n"""\n${text.slice(0, 3000)}\n"""\nExtract deliverables into JSON:`;
+      const geminiText = await generateWithGemini(prompt, systemInstruction);
+      parsed = extractJsonFromText(geminiText);
+    } catch (err: any) {
+      console.warn('Gemini extraction failed, using deterministic local engine fallback:', err?.message || err);
     }
   }
 
-  // Validate and sanitize parsed items
+  // 3. Fallback to local deterministic parser if remote AI providers fail
+  if (!parsed || !Array.isArray(parsed.items)) {
+    modelUsed = 'local-engine';
+    parsed = localRuleBasedExtraction(text, referenceDate);
+  }
+
+  // Sanitize and validate items
   const validatedItems = Array.isArray(parsed?.items)
     ? parsed.items.map((item: any) => ({
         title: String(item.title || 'Untitled Deliverable').slice(0, 200),
         category: ['assignment', 'exam', 'project', 'club', 'event', 'personal', 'other'].includes(item.category)
           ? item.category
           : 'assignment',
-        date: typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.date) ? item.date : null,
-        time: typeof item.time === 'string' ? item.time.slice(0, 5) : null,
+        date: typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.date) ? item.date : referenceDate,
+        time: typeof item.time === 'string' ? item.time.slice(0, 5) : '23:59',
         estimatedMinutes: typeof item.estimatedMinutes === 'number' && item.estimatedMinutes > 0 ? Math.min(item.estimatedMinutes, 1440) : 60,
         priority: ['low', 'medium', 'high', 'critical'].includes(item.priority) ? item.priority : 'medium',
         isFlexible: Boolean(item.isFlexible),
@@ -289,7 +377,6 @@ STRICT RULES:
 
 /**
  * 2. Task Breakdown with AI
- * Breaks a project or deliverable into structured subtasks.
  */
 app.post('/api/ai/breakdown-task', async (req: Request, res: Response): Promise<void> => {
   const userId = req.headers['x-user-id'] ? String(req.headers['x-user-id']) : 'anonymous';
@@ -324,72 +411,42 @@ Return strictly a JSON object:
   let subtasks: any[] = [];
 
   // 1. Try Gemma 4
-  const gemmaMessages = [
-    { role: 'system', content: systemInstruction },
-    { role: 'user', content: `Breakdown task:\nTitle: ${title}\nCategory: ${category || 'assignment'}\nDescription: ${description || 'None'}\nEstimated minutes: ${estimatedMinutes || 180}` },
-  ];
-
-  const gemmaResponse = await queryGemma(gemmaMessages, 1000);
-  if (gemmaResponse) {
-    try {
-      const parsed = extractJsonFromText(gemmaResponse);
-      if (Array.isArray(parsed.subtasks)) {
-        subtasks = parsed.subtasks;
+  if (HUGGINGFACE_TOKEN) {
+    const gemmaMessages = [
+      { role: 'system', content: systemInstruction },
+      { role: 'user', content: `Breakdown task:\nTitle: ${title}\nCategory: ${category || 'assignment'}\nDescription: ${description || 'None'}\nEstimated minutes: ${estimatedMinutes || 180}` },
+    ];
+    const gemmaResponse = await queryGemma(gemmaMessages, 1000);
+    if (gemmaResponse) {
+      try {
+        const parsed = extractJsonFromText(gemmaResponse);
+        if (Array.isArray(parsed.subtasks)) subtasks = parsed.subtasks;
+      } catch (e) {
+        console.warn('Gemma breakdown parsing failed:', e);
       }
-    } catch (e) {
-      console.warn('Gemma breakdown parsing failed, using Gemini:', e);
     }
   }
 
-  // 2. Fallback to Gemini
+  // 2. Try Gemini
   if (subtasks.length === 0) {
-    const ai = getGeminiClient();
-    if (!ai) {
-      res.status(503).json({
-        error: { code: 'AI_UNAVAILABLE', message: 'AI model service unavailable.' },
-      });
-      return;
-    }
-
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Task: ${title}\nCategory: ${category || 'assignment'}\nDetails: ${description || 'None'}\nTotal estimated minutes: ${estimatedMinutes || 180}`,
-        config: {
-          systemInstruction,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              subtasks: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    title: { type: Type.STRING },
-                    estimatedMinutes: { type: Type.INTEGER },
-                    position: { type: Type.INTEGER },
-                  },
-                  required: ['title', 'estimatedMinutes', 'position'],
-                },
-              },
-            },
-            required: ['subtasks'],
-          },
-        },
-      });
-
-      const parsed = JSON.parse(response.text?.trim() || '{}');
-      if (Array.isArray(parsed.subtasks)) {
-        subtasks = parsed.subtasks;
-      }
+      const prompt = `Task: ${title}\nCategory: ${category || 'assignment'}\nDetails: ${description || 'None'}\nTotal estimated minutes: ${estimatedMinutes || 180}`;
+      const geminiText = await generateWithGemini(prompt, systemInstruction);
+      const parsed = extractJsonFromText(geminiText);
+      if (Array.isArray(parsed.subtasks)) subtasks = parsed.subtasks;
     } catch (err) {
-      console.error('Gemini breakdown error:', err);
-      res.status(500).json({
-        error: { code: 'AI_PROCESSING_ERROR', message: 'Failed to generate task breakdown.' },
-      });
-      return;
+      console.warn('Gemini breakdown failed, using fallback milestones:', err);
     }
+  }
+
+  // 3. Fallback deterministic breakdown
+  if (subtasks.length === 0) {
+    const totalMin = estimatedMinutes || 180;
+    subtasks = [
+      { title: `Read requirements and review concepts for ${title}`, estimatedMinutes: Math.round(totalMin * 0.25), position: 1 },
+      { title: `Draft core problem solutions and implementation`, estimatedMinutes: Math.round(totalMin * 0.5), position: 2 },
+      { title: `Proofread, test edge cases, and finalize submission`, estimatedMinutes: Math.round(totalMin * 0.25), position: 3 },
+    ];
   }
 
   const validatedSubtasks = subtasks.map((st: any, idx: number) => ({
@@ -403,7 +460,6 @@ Return strictly a JSON object:
 
 /**
  * 3. AI Workload Recommendations
- * Advises the user on pacing and front-loading without modifying tasks automatically.
  */
 app.post('/api/ai/recommendations', async (req: Request, res: Response): Promise<void> => {
   const userId = req.headers['x-user-id'] ? String(req.headers['x-user-id']) : 'anonymous';
@@ -442,37 +498,30 @@ STRICT INVARIANTS:
   let resultData: any = null;
 
   // 1. Try Gemma 4
-  const gemmaMessages = [
-    { role: 'system', content: systemInstruction },
-    {
-      role: 'user',
-      content: JSON.stringify({
-        thresholdHours: dailyThresholdHours || 8.0,
-        overloadedDays: overloadedDays || [],
-        tasks: (tasks || []).slice(0, 15),
-      }),
-    },
-  ];
-
-  const gemmaResponse = await queryGemma(gemmaMessages, 1200);
-  if (gemmaResponse) {
-    try {
-      resultData = extractJsonFromText(gemmaResponse);
-    } catch (e) {
-      console.warn('Gemma recommendations parsing failed, using Gemini:', e);
+  if (HUGGINGFACE_TOKEN) {
+    const gemmaMessages = [
+      { role: 'system', content: systemInstruction },
+      {
+        role: 'user',
+        content: JSON.stringify({
+          thresholdHours: dailyThresholdHours || 8.0,
+          overloadedDays: overloadedDays || [],
+          tasks: (tasks || []).slice(0, 15),
+        }),
+      },
+    ];
+    const gemmaResponse = await queryGemma(gemmaMessages, 1200);
+    if (gemmaResponse) {
+      try {
+        resultData = extractJsonFromText(gemmaResponse);
+      } catch (e) {
+        console.warn('Gemma recommendations parse failed:', e);
+      }
     }
   }
 
-  // 2. Fallback to Gemini
+  // 2. Try Gemini
   if (!resultData) {
-    const ai = getGeminiClient();
-    if (!ai) {
-      res.status(503).json({
-        error: { code: 'AI_UNAVAILABLE', message: 'AI advisor service unavailable.' },
-      });
-      return;
-    }
-
     try {
       const prompt = JSON.stringify({
         thresholdHours: dailyThresholdHours || 8.0,
@@ -486,44 +535,48 @@ STRICT INVARIANTS:
           priority: t.priority,
         })),
       });
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          systemInstruction,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              summary: { type: Type.STRING },
-              recommendations: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    type: { type: Type.STRING, enum: ['front_load', 'reschedule_flexible', 'breakdown', 'buffer'] },
-                    message: { type: Type.STRING },
-                    taskTitle: { type: Type.STRING },
-                    suggestedAction: { type: Type.STRING },
-                  },
-                  required: ['type', 'message'],
-                },
-              },
-            },
-            required: ['summary', 'recommendations'],
-          },
-        },
-      });
-
-      resultData = JSON.parse(response.text?.trim() || '{}');
+      const geminiText = await generateWithGemini(prompt, systemInstruction);
+      resultData = extractJsonFromText(geminiText);
     } catch (err) {
-      console.error('Gemini recommendations error:', err);
-      res.status(500).json({
-        error: { code: 'AI_PROCESSING_ERROR', message: 'Failed to generate recommendations.' },
-      });
-      return;
+      console.warn('Gemini recommendations failed, generating deterministic recommendations:', err);
     }
+  }
+
+  // 3. Deterministic recommendation fallback
+  if (!resultData) {
+    const recs: any[] = [];
+    const flexibleTasks = (tasks || []).filter((t: any) => t.isFlexible);
+
+    if (overloadedDays && overloadedDays.length > 0) {
+      if (flexibleTasks.length > 0) {
+        recs.push({
+          type: 'reschedule_flexible',
+          taskTitle: flexibleTasks[0].title,
+          message: `Consider moving "${flexibleTasks[0].title}" earlier or later to alleviate peak crunch.`,
+          suggestedAction: 'Reschedule flexible deliverable',
+        });
+      }
+      recs.push({
+        type: 'front_load',
+        taskTitle: 'Upcoming Deadlines',
+        message: 'Start high-stakes exam preparation 2 to 3 days in advance to flatten spike days.',
+        suggestedAction: 'Allocate 1.5h daily prep blocks',
+      });
+    } else {
+      recs.push({
+        type: 'buffer',
+        taskTitle: 'Pacing on Track',
+        message: 'Your current workload is within your daily capacity thresholds.',
+        suggestedAction: 'Maintain steady velocity',
+      });
+    }
+
+    resultData = {
+      summary: overloadedDays?.length
+        ? `Found ${overloadedDays.length} overloaded day(s). Prioritize front-loading preparation.`
+        : 'Workload distribution is balanced.',
+      recommendations: recs,
+    };
   }
 
   res.json(resultData);
@@ -548,7 +601,7 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Deadline Radar server running on http://0.0.0.0:${PORT} [${isProd ? 'production' : 'development'}]`);
-    console.log(`Gemma Model target: ${GEMMA_MODEL} with Hugging Face integration active.`);
+    console.log(`Active Gemini models: ${GEMINI_MODELS.join(', ')}`);
   });
 }
 
