@@ -128,7 +128,7 @@ export const INITIAL_DEADLINES: Deadline[] = [
     status: 'upcoming',
     notes: 'In-person closed book exam. Topics: modules, functors, red-black trees, amortization.',
     milestones: [
-      { id: 'm3-1', title: 'Review lecture notes weeks 1-5 & textbook chapters', dueDate: '2026-10-11', completed: false, estimatedHours: 3.5 },
+      { id: 'm3-1', title: 'Study lecture notes weeks 1-5 & textbook chapters', dueDate: '2026-10-11', completed: false, estimatedHours: 3.5 },
       { id: 'm3-2', title: 'Solve 2024 and 2025 past prelim exams under timed conditions', dueDate: '2026-10-13', completed: false, estimatedHours: 4.0 },
       { id: 'm3-3', title: 'Clarify functor syntax and balance invariants in TA office hours', dueDate: '2026-10-14', completed: false, estimatedHours: 1.5 },
     ],
@@ -149,7 +149,7 @@ export const INITIAL_DEADLINES: Deadline[] = [
     notes: 'Covers Chapters 1-4: Subspaces, rank-nullity theorem, determinants, and diagonalization.',
     milestones: [
       { id: 'm4-1', title: 'Complete comprehensive practice exam sheet', dueDate: '2026-10-11', completed: false, estimatedHours: 3.5 },
-      { id: 'm4-2', title: 'Review orthogonal complements and basis change matrices', dueDate: '2026-10-12', completed: false, estimatedHours: 3.0 },
+      { id: 'm4-2', title: 'Study orthogonal complements and basis change matrices', dueDate: '2026-10-12', completed: false, estimatedHours: 3.0 },
       { id: 'm4-3', title: 'Memorize proof outlines for fundamental theorems', dueDate: '2026-10-13', completed: false, estimatedHours: 2.0 },
     ],
   },
@@ -170,7 +170,7 @@ export const INITIAL_DEADLINES: Deadline[] = [
     milestones: [
       { id: 'm5-1', title: 'Refine thesis statement and structural outline', dueDate: '2026-10-15', completed: false, estimatedHours: 2.0 },
       { id: 'm5-2', title: 'Draft body sections with textual evidence synthesis', dueDate: '2026-10-16', completed: false, estimatedHours: 3.0 },
-      { id: 'm5-3', title: 'Peer review revisions and MLA citation verification', dueDate: '2026-10-17', completed: false, estimatedHours: 1.0 },
+      { id: 'm5-3', title: 'Draft revisions and MLA citation verification', dueDate: '2026-10-17', completed: false, estimatedHours: 1.0 },
     ],
   },
   {
@@ -263,7 +263,7 @@ export const INITIAL_DEADLINES: Deadline[] = [
     workloadTier: 'Overloaded',
     status: 'upcoming',
     milestones: [
-      { id: 'm10-1', title: 'Review magnetic fields, Biot-Savart, and Ampere circuits', dueDate: '2026-10-30', completed: false, estimatedHours: 4.0 },
+      { id: 'm10-1', title: 'Study magnetic fields, Biot-Savart, and Ampere circuits', dueDate: '2026-10-30', completed: false, estimatedHours: 4.0 },
       { id: 'm10-2', title: 'Faraday law time-dependent flux drills', dueDate: '2026-10-31', completed: false, estimatedHours: 3.5 },
       { id: 'm10-3', title: 'Full past exam mock session', dueDate: '2026-11-01', completed: false, estimatedHours: 2.5 },
     ],

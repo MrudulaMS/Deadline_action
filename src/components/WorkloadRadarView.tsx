@@ -176,6 +176,16 @@ export const WorkloadRadarView: React.FC<WorkloadRadarViewProps> = ({
         </div>
       </div>
 
+      {/* Empty State Banner (Clean & honest when 0 deliverables) */}
+      {activeDeadlines.length === 0 && (
+        <div className="bg-white rounded-[8px] border border-[#E5E7EB] p-6 text-center space-y-1">
+          <h3 className="text-sm font-semibold text-[#111827]">No Active Deliverables Scheduled</h3>
+          <p className="text-xs text-[#6B7280] max-w-md mx-auto">
+            Your schedule queue is currently clear. Add deliverables using "Add Deadline" or extract commitments from syllabus text using "Plan with AI".
+          </p>
+        </div>
+      )}
+
       {/* Clash Alert Warning Banner (if clashes exist) */}
       {clashAlerts.length > 0 && (
         <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-[8px] p-4 space-y-3">
