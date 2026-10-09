@@ -3,6 +3,7 @@ import { Deadline, DailyWorkload, ClashAlert } from '../types';
 import { WorkloadTimelineBar } from './WorkloadTimelineBar';
 import { WorkloadBadge } from './WorkloadBadge';
 import { CourseTag } from './CourseTag';
+import { TimeToDeadlineCountdown } from './TimeToDeadlineCountdown';
 import { AlertTriangle, Clock, CheckCircle2, ChevronRight, Sliders, Calendar, ArrowRight } from 'lucide-react';
 
 interface WorkloadRadarViewProps {
@@ -175,6 +176,9 @@ export const WorkloadRadarView: React.FC<WorkloadRadarViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Time-to-Deadline Countdown Strip (Next 3 approaching deliverables with visual urgency) */}
+      <TimeToDeadlineCountdown deadlines={deadlines} onSelectDate={setSelectedDateStr} />
 
       {/* Empty State Banner (Clean & honest when 0 deliverables) */}
       {activeDeadlines.length === 0 && (
