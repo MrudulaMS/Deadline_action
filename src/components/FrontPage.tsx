@@ -158,7 +158,7 @@ export const FrontPage: React.FC<FrontPageProps> = ({ onEnterDemo }) => {
                 </div>
                 <div className="text-xs font-semibold text-[#111827]">Plan with AI</div>
                 <div className="text-[11px] text-[#6B7280] leading-snug">
-                  Natural-language parser turns unstructured notes into structured tasks with mandatory user review.
+                  Natural-language parser turns unstructured notes into structured tasks with mandatory user verification.
                 </div>
               </div>
             </div>
@@ -415,7 +415,7 @@ export const FrontPage: React.FC<FrontPageProps> = ({ onEnterDemo }) => {
               { day: 'Thu 15', hours: 4.5, tier: 'Moderate' as const, note: 'Post-midterm' },
               { day: 'Fri 16', hours: 7.0, tier: 'Heavy' as const, note: 'Paper deadline' },
               { day: 'Sat 17', hours: 2.0, tier: 'Light' as const, note: 'Reading block' },
-              { day: 'Sun 18', hours: 1.5, tier: 'Light' as const, note: 'Weekly review' },
+              { day: 'Sun 18', hours: 1.5, tier: 'Light' as const, note: 'Weekly planning' },
             ].map((d, i) => (
               <div
                 key={i}

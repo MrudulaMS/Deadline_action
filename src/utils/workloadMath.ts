@@ -141,7 +141,7 @@ export function detectClashAlerts(
         severity: isSevere ? 'Overloaded' : 'Heavy',
         recommendation: `Multiple high-stake deliverables due concurrently (${day.deadlinesDue
           .map((d) => d.courseCode)
-          .join(' + ')}). Front-load problem sets and mock reviews 3–4 days in advance to mitigate exam fatigue.`,
+          .join(' + ')}). Front-load problem sets and study sessions 3–4 days in advance to mitigate exam fatigue.`,
       });
     } else if (day.totalHours > capacityLimit + 1.5) {
       // Condition 2: Heavily overloaded study day even with 1 deadline

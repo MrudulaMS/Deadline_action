@@ -265,7 +265,7 @@ export const INITIAL_DEADLINES: Deadline[] = [
     milestones: [
       { id: 'm10-1', title: 'Study magnetic fields, Biot-Savart, and Ampere circuits', dueDate: '2026-10-30', completed: false, estimatedHours: 4.0 },
       { id: 'm10-2', title: 'Faraday law time-dependent flux drills', dueDate: '2026-10-31', completed: false, estimatedHours: 3.5 },
-      { id: 'm10-3', title: 'Full past exam mock session', dueDate: '2026-11-01', completed: false, estimatedHours: 2.5 },
+      { id: 'm10-3', title: 'Full past exam practice session', dueDate: '2026-11-01', completed: false, estimatedHours: 2.5 },
     ],
   },
   {

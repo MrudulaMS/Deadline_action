@@ -175,7 +175,7 @@ export const AiPlannerModal: React.FC<AiPlannerModalProps> = ({
               <div className="p-3 bg-[#F9FAFB] rounded-[6px] border border-[#E5E7EB] text-[11px] text-[#4B5563] space-y-1">
                 <div className="font-semibold text-[#111827]">How this works:</div>
                 <div>1. Gemini analyzes your schedule relative to your current date and timezone ({userTimezone}).</div>
-                <div>2. You review and verify all extracted items before anything is saved.</div>
+                <div>2. You inspect and verify all extracted items before anything is saved.</div>
                 <div>3. No tasks are automatically created without your explicit confirmation.</div>
               </div>
 
@@ -215,10 +215,10 @@ export const AiPlannerModal: React.FC<AiPlannerModalProps> = ({
               <div className="flex items-center justify-between pb-2 border-b border-[#E5E7EB]">
                 <div>
                   <h4 className="text-xs font-semibold text-[#111827] uppercase tracking-[0.05em]">
-                    Review Extracted Deliverables ({extractedItems.filter((i) => i.selected).length}/{extractedItems.length} selected)
+                    Verify Extracted Deliverables ({extractedItems.filter((i) => i.selected).length}/{extractedItems.length} selected)
                   </h4>
                   <p className="text-[11px] text-[#6B7280]">
-                    Review, adjust dates or effort, and confirm items to add them to your calendar.
+                    Inspect, adjust dates or effort, and confirm items to add them to your calendar.
                   </p>
                 </div>
                 <button
