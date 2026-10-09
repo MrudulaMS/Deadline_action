@@ -8,6 +8,7 @@ import { Deadline, Course, DailyWorkload, Task } from './types';
 import { INITIAL_COURSES, INITIAL_DEADLINES } from './data/initialData';
 import { calculateDailyWorkload, detectClashAlerts, BASE_DATE_STR } from './services/workloadEngine';
 import { Header, ActiveTab } from './components/Header';
+import { FrontPage } from './components/FrontPage';
 import { WorkloadRadarView } from './components/WorkloadRadarView';
 import { DeadlineRegistryView } from './components/DeadlineRegistryView';
 import { CourseRosterView } from './components/CourseRosterView';
@@ -61,6 +62,7 @@ function MainApp() {
   const [editingDeadline, setEditingDeadline] = useState<Deadline | null>(null);
   const [inspectingDay, setInspectingDay] = useState<DailyWorkload | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showWorkspace, setShowWorkspace] = useState(false);
 
   // Test connection on mount
   useEffect(() => {
@@ -290,6 +292,10 @@ function MainApp() {
     showToast('Schedule exported as CSV.');
   };
 
+  if (!user && !showWorkspace) {
+    return <FrontPage onEnterDemo={() => setShowWorkspace(true)} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#F9FAFB] text-[#111827] flex flex-col antialiased">
       {/* 3-Zone Top Navigation Bar */}
@@ -304,6 +310,7 @@ function MainApp() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onResetData={handleResetData}
+        onNavigateHome={() => setShowWorkspace(false)}
         clashCount={clashAlerts.length}
       />
 

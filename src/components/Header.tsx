@@ -12,6 +12,7 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onOpenAuth: () => void;
   onResetData: () => void;
+  onNavigateHome?: () => void;
   clashCount: number;
 }
 
@@ -23,6 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   onOpenAuth,
   onResetData,
+  onNavigateHome,
   clashCount,
 }) => {
   const { user, profile, logout } = useAuth();
@@ -33,7 +35,12 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Zone 1: Brand & Academic Registry context */}
           <div className="flex items-center gap-3 shrink-0">
-            <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={onNavigateHome}
+              title="Return to front page"
+              className="flex items-center gap-2.5 text-left hover:opacity-90 transition-opacity"
+            >
               <div className="w-8 h-8 rounded-[6px] bg-[#1E3A8A] flex items-center justify-center text-white font-semibold text-sm">
                 DR
               </div>
@@ -45,7 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
                   Academic Registry · Fall 2026
                 </span>
               </div>
-            </div>
+            </button>
           </div>
 
           {/* Zone 2: Navigation Tabs (Segmented Control) */}
